@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="text-center mb-12">
+        <h1 class="text-4xl font-bold text-white mb-4">Mobile Legends Draft Simulator</h1>
+        <p class="text-xl text-gray-300 mb-8">Create, simulate, and analyze your Mobile Legends drafts</p>
+        
+        <div class="flex justify-center space-x-4">
+            <a href="{% url 'create_draft' %}" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+                🎯 Create New Draft
+            </a>
+            <a href="{% url 'hero_rank_web' %}" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300">
+                📊 View Hero Rankings
+            </a>
+        </div>
+    </div>
+
+    <!-- Recent Drafts Section -->
+    {% if recent_drafts %}
+    <div class="mb-12">
+        <h2 class="text-2xl font-bold text-white mb-6">📋 Recent Drafts</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for draft in recent_drafts %}
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700 hover:border-blue-500 transition-colors duration-300">
+                <div class="flex justify-between items-start mb-4">
+                    <h3 class="text-lg font-semibold text-white">{{ draft.name }}</h3>
+                    <span class="px-2 py-1 text-xs font-medium rounded-full
+                        {% if draft.is_completed %}bg-green-900 text-green-300{% else %}bg-yellow-900 text-yellow-300{% endif %}">
+                        {% if draft.is_completed %}Completed{% else %}In Progress{% endif %}
+                    </span>
+                </div>
+                
+                <div class="text-sm text-gray-400 mb-4">
+                    <p>Created: {{ draft.created_at|date:"M d, Y H:i" }}</p>
+                    <p>Updated: {{ draft.updated_at|date:"M d, Y H:i" }}</p>
+                </div>
+                
+                <div class="flex justify-between items-center">
+                    <div class="text-sm text-gray-300">
+                        Phase: {{ draft.get_current_phase_display }}
+                    </div>
+                    <a href="{% url 'draft_session' draft.id %}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded text-sm transition duration-300">
+                        {% if draft.is_completed %}View{% else %}Continue{% endif %}
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Draft Templates Section -->
+    {% if templates %}
+    <div class="mb-12">
+        <h2 class="text-2xl font-bold text-white mb-6">🎨 Community Templates</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for template in templates %}
+            <div class="bg-gray-800 rounded-lg p-6 border border-gray-700 hover:border-green-500 transition-colors duration-300">
+                <h3 class="text-lg font-semibold text-white mb-2">{{ template.name }}</h3>
+                
+                {% if template.description %}
+                <p class="text-sm text-gray-400 mb-4">{{ template.description|truncatechars:100 }}</p>
+                {% endif %}
+                
+                <div class="text-sm text-gray-300 mb-4">
+                    <div class="flex justify-between">
+                        <span>Blue Picks: {{ template.blue_picks|length }}/5</span>
+                        <span>Red Picks: {{ template.red_picks|length }}/5</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Blue Bans: {{ template.blue_bans|length }}</span>
+                        <span>Red Bans: {{ template.red_bans|length }}</span>
+                    </div>
+                </div>
+                
+                <div class="text-xs text-gray-500 mb-4">
+                    Created: {{ template.created_at|date:"M d, Y" }}
+                </div>
+                
+                <button class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded text-sm transition duration-300">
+                    Use Template
+                </button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Features Section -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+        <div class="bg-gray-800 rounded-lg p-6 border border-gray-700 text-center">
+            <div class="text-4xl mb-4">⚔️</div>
+            <h3 class="text-xl font-semibold text-white mb-2">Realistic Draft Flow</h3>
+            <p class="text-gray-400">Experience the authentic Mobile Legends draft process with proper ban/pick phases</p>
+        </div>
+        
+        <div class="bg-gray-800 rounded-lg p-6 border border-gray-700 text-center">
+            <div class="text-4xl mb-4">💾</div>
+            <h3 class="text-xl font-semibold text-white mb-2">Save & Share</h3>
+            <p class="text-gray-400">Save your successful drafts as templates and share them with your team</p>
+        </div>
+        
+        <div class="bg-gray-800 rounded-lg p-6 border border-gray-700 text-center">
+            <div class="text-4xl mb-4">📈</div>
+            <h3 class="text-xl font-semibold text-white mb-2">Analytics Powered</h3>
+            <p class="text-gray-400">Get insights from real game data including hero counters and win rates</p>
+        </div>
+    </div>
+
+    <!-- Instructions -->
+    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+        <h2 class="text-xl font-semibold text-white mb-4">🚀 How to Use</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <h3 class="font-semibold text-green-400 mb-2">Creating a Draft</h3>
+                <ol class="text-gray-300 text-sm space-y-1">
+                    <li>1. Click "Create New Draft" to start</li>
+                    <li>2. Follow the ban/pick phases in order</li>
+                    <li>3. Select heroes by clicking on them</li>
+                    <li>4. Assign positions for your picks</li>
+                </ol>
+            </div>
+            <div>
+                <h3 class="font-semibold text-blue-400 mb-2">Draft Features</h3>
+                <ul class="text-gray-300 text-sm space-y-1">
+                    <li>• Real-time draft validation</li>
+                    <li>• Hero search and filtering</li>
+                    <li>• Counter/synergy suggestions</li>
+                    <li>• Save as reusable templates</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

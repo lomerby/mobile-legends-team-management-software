@@ -1,0 +1,758 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    <!-- Draft Header -->
+    <div class="bg-gray-800 rounded-lg p-4 mb-6 border border-gray-700">
+        <div class="flex justify-between items-center mb-4">
+            <h1 class="text-2xl font-bold text-white">{{ draft.name }}</h1>
+            <div class="flex items-center space-x-4">
+                <div class="text-sm text-gray-300">
+                    Progress: {{ progress.current_turn }}/{{ progress.total_turns }}
+                </div>
+                <a href="{% url 'draft_home' %}" class="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded text-sm">
+                    ← Back to Home
+                </a>
+            </div>
+        </div>
+        
+        <!-- Current Turn Indicator -->
+        <div class="bg-gray-900 rounded-lg p-4 border border-gray-600">
+            <div class="flex justify-between items-center">
+                <div>
+                    {% if not draft.is_completed %}
+                        <span class="text-lg font-bold text-yellow-400" id="current-turn-text">
+                            Current Turn: 
+                            <span id="current-action">{{ current_action|title }}</span>
+                        </span>
+                    {% else %}
+                        <span class="text-lg font-bold text-green-400">
+                            Draft Completed ✅
+                        </span>
+                    {% endif %}
+                </div>
+                <div class="flex space-x-2">
+                    {% if not draft.is_completed %}
+                        <button id="save-template-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 text-sm rounded">
+                            Save as Template
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Progress Bar -->
+            <div class="w-full bg-gray-700 rounded-full h-2 mt-3">
+                <div class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width: {% widthratio progress.current_turn progress.total_turns 100 %}%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Draft Board -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        
+        <!-- Blue Team -->
+        <div class="bg-blue-900 rounded-lg p-6 border-2 border-blue-600" id="blue-team">
+            <h2 class="text-xl font-bold text-blue-200 mb-4 flex items-center">
+                <span class="w-4 h-4 bg-blue-500 rounded-full mr-2"></span>
+                {{ blue_team.name }}
+            </h2>
+            
+            <!-- Blue Team Picks -->
+            <div class="mb-6">
+                <h3 class="font-semibold text-blue-300 mb-3">Picks</h3>
+                <div class="grid grid-cols-1 gap-2" id="blue-picks">
+                    {% for pick in blue_team.picks.all %}
+                    <div class="bg-blue-800 rounded-lg p-3 border border-blue-600">
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium text-blue-100">{{ pick.hero_name }}</span>
+                            <div class="text-xs">
+                                {% if pick.position %}
+                                    <span class="bg-blue-700 px-2 py-1 rounded text-blue-200">
+                                        {{ pick.get_position_display }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-blue-400 text-sm italic">No picks yet</div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Blue Team Bans -->
+            <div>
+                <h3 class="font-semibold text-blue-300 mb-3">Bans</h3>
+                <div class="grid grid-cols-2 gap-2" id="blue-bans">
+                    {% for ban in blue_team.bans.all %}
+                    <div class="bg-red-900 rounded-lg p-2 border border-red-600">
+                        <span class="text-red-300 text-sm">{{ ban.hero_name }}</span>
+                    </div>
+                    {% empty %}
+                    <div class="text-blue-400 text-sm italic col-span-2">No bans yet</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Hero Selection Panel -->
+        <div class="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+            <!-- Tabs -->
+            <div class="flex border-b border-gray-700">
+                <button id="heroes-tab" class="flex-1 px-4 py-3 text-white bg-gray-700 font-medium">Heroes</button>
+                <button id="recommendations-tab" class="flex-1 px-4 py-3 text-gray-300 bg-gray-800 hover:bg-gray-700 font-medium">Recommendations</button>
+            </div>
+            
+            <!-- Hero Selection Content -->
+            <div id="heroes-content" class="p-6">
+                <!-- Search and Filters -->
+                <div class="flex gap-2 mb-4">
+                    <input 
+                        type="text" 
+                        id="hero-search" 
+                        placeholder="Search heroes..."
+                        class="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                    <select id="role-filter" class="px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white text-sm">
+                        <option value="all">All Roles</option>
+                        <option value="Tank">Tank</option>
+                        <option value="Fighter">Fighter</option>
+                        <option value="Assassin">Assassin</option>
+                        <option value="Mage">Mage</option>
+                        <option value="Marksman">Marksman</option>
+                        <option value="Support">Support</option>
+                    </select>
+                </div>
+                
+                <!-- Hero Grid -->
+                <div class="grid grid-cols-3 gap-2 max-h-80 overflow-y-auto" id="hero-grid">
+                    <!-- Heroes will be populated by JavaScript -->
+                </div>
+                
+                <!-- Position Selection (for picks only) -->
+                <div id="position-selector" class="mt-4 hidden">
+                    <h3 class="text-sm font-semibold text-gray-300 mb-2">Select Position:</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button class="position-btn bg-gray-600 hover:bg-gray-500 text-white px-3 py-2 rounded text-xs" data-position="1">Exp Lane</button>
+                        <button class="position-btn bg-gray-600 hover:bg-gray-500 text-white px-3 py-2 rounded text-xs" data-position="2">Jungler</button>
+                        <button class="position-btn bg-gray-600 hover:bg-gray-500 text-white px-3 py-2 rounded text-xs" data-position="3">Mid Lane</button>
+                        <button class="position-btn bg-gray-600 hover:bg-gray-500 text-white px-3 py-2 rounded text-xs" data-position="4">Gold Lane</button>
+                        <button class="position-btn bg-gray-600 hover:bg-gray-500 text-white px-3 py-2 rounded text-xs" data-position="5">Roamer</button>
+                        <button class="position-btn bg-red-600 hover:bg-red-500 text-white px-3 py-2 rounded text-xs" data-position="">Skip Position</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recommendations Content -->
+            <div id="recommendations-content" class="p-6 hidden">
+                <div class="mb-4">
+                    <h3 class="text-lg font-semibold text-white mb-2">AI Recommendations</h3>
+                    <p class="text-sm text-gray-400 mb-4">Based on current meta and team composition</p>
+                </div>
+                
+                <div id="recommendations-list" class="space-y-2 max-h-80 overflow-y-auto">
+                    <!-- Recommendations will be populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Red Team -->
+        <div class="bg-red-900 rounded-lg p-6 border-2 border-red-600" id="red-team">
+            <h2 class="text-xl font-bold text-red-200 mb-4 flex items-center">
+                <span class="w-4 h-4 bg-red-500 rounded-full mr-2"></span>
+                {{ red_team.name }}
+            </h2>
+            
+            <!-- Red Team Picks -->
+            <div class="mb-6">
+                <h3 class="font-semibold text-red-300 mb-3">Picks</h3>
+                <div class="grid grid-cols-1 gap-2" id="red-picks">
+                    {% for pick in red_team.picks.all %}
+                    <div class="bg-red-800 rounded-lg p-3 border border-red-600">
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium text-red-100">{{ pick.hero_name }}</span>
+                            <div class="text-xs">
+                                {% if pick.position %}
+                                    <span class="bg-red-700 px-2 py-1 rounded text-red-200">
+                                        {{ pick.get_position_display }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-red-400 text-sm italic">No picks yet</div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Red Team Bans -->
+            <div>
+                <h3 class="font-semibold text-red-300 mb-3">Bans</h3>
+                <div class="grid grid-cols-2 gap-2" id="red-bans">
+                    {% for ban in red_team.bans.all %}
+                    <div class="bg-red-900 rounded-lg p-2 border border-red-600">
+                        <span class="text-red-300 text-sm">{{ ban.hero_name }}</span>
+                    </div>
+                    {% empty %}
+                    <div class="text-red-400 text-sm italic col-span-2">No bans yet</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Team Analysis -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- Blue Team Analysis -->
+        <div class="bg-blue-900 rounded-lg p-4 border border-blue-600">
+            <h3 class="font-semibold text-blue-200 mb-3 flex items-center">
+                <span class="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+                Blue Team Analysis
+            </h3>
+            <div id="blue-analysis" class="space-y-2">
+                {% if blue_analysis %}
+                <div class="text-sm">
+                    <div class="flex justify-between text-blue-300">
+                        <span>Overall Rating:</span>
+                        <span class="font-semibold">{{ blue_analysis.overall_rating }}</span>
+                    </div>
+                    <div class="flex justify-between text-blue-300">
+                        <span>Team Synergy:</span>
+                        <span class="font-semibold">{{ blue_analysis.synergy|floatformat:1 }}%</span>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="text-xs text-blue-400 mb-1">Role Distribution:</div>
+                    <div class="grid grid-cols-3 gap-1 text-xs">
+                        {% for role, count in blue_analysis.roles.items %}
+                        <div class="bg-blue-800 px-2 py-1 rounded text-center">
+                            <div class="font-semibold">{{ count }}</div>
+                            <div class="text-blue-300">{{ role }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Red Team Analysis -->
+        <div class="bg-red-900 rounded-lg p-4 border border-red-600">
+            <h3 class="font-semibold text-red-200 mb-3 flex items-center">
+                <span class="w-3 h-3 bg-red-500 rounded-full mr-2"></span>
+                Red Team Analysis
+            </h3>
+            <div id="red-analysis" class="space-y-2">
+                {% if red_analysis %}
+                <div class="text-sm">
+                    <div class="flex justify-between text-red-300">
+                        <span>Overall Rating:</span>
+                        <span class="font-semibold">{{ red_analysis.overall_rating }}</span>
+                    </div>
+                    <div class="flex justify-between text-red-300">
+                        <span>Team Synergy:</span>
+                        <span class="font-semibold">{{ red_analysis.synergy|floatformat:1 }}%</span>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <div class="text-xs text-red-400 mb-1">Role Distribution:</div>
+                    <div class="grid grid-cols-3 gap-1 text-xs">
+                        {% for role, count in red_analysis.roles.items %}
+                        <div class="bg-red-800 px-2 py-1 rounded text-center">
+                            <div class="font-semibold">{{ count }}</div>
+                            <div class="text-red-300">{{ role }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Draft History -->
+    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+        <div class="flex justify-between items-center mb-3">
+            <h3 class="font-semibold text-white">Draft History</h3>
+            {% if draft.is_completed %}
+            <a href="{% url 'draft_analytics' draft.id %}" class="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm">
+                📊 View Analytics
+            </a>
+            {% endif %}
+        </div>
+        <div id="draft-history" class="text-sm text-gray-300">
+            <!-- Will be populated by JavaScript -->
+        </div>
+    </div>
+</div>
+
+<!-- Save Template Modal -->
+<div id="save-template-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-gray-800 rounded-lg p-6 max-w-md mx-4 border border-gray-700">
+        <h3 class="text-lg font-bold text-white mb-4">Save as Template</h3>
+        <form id="save-template-form">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-300 mb-2">Template Name</label>
+                <input type="text" id="template-name" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white" value="{{ draft.name }} Template">
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-300 mb-2">Description</label>
+                <textarea id="template-description" class="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white h-20" placeholder="Optional description..."></textarea>
+            </div>
+            <div class="mb-6">
+                <label class="flex items-center">
+                    <input type="checkbox" id="template-public" class="mr-2">
+                    <span class="text-sm text-gray-300">Make public (share with community)</span>
+                </label>
+            </div>
+            <div class="flex space-x-3">
+                <button type="submit" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded">Save</button>
+                <button type="button" id="cancel-template" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Draft data from backend
+const draftData = {
+    id: {{ draft.id }},
+    currentAction: "{{ current_action }}",
+    isCompleted: {{ draft.is_completed|yesno:"true,false" }}
+};
+
+let selectedHero = null;
+let selectedPosition = null;
+let draftHistory = [];
+let allHeroes = [];
+let currentRecommendations = [];
+
+// Initialize the draft interface
+document.addEventListener('DOMContentLoaded', function() {
+    loadHeroes();
+    initializeTabSwitching();
+    initializeTemplateModal();
+    loadDraftData();
+    updateCurrentTurnDisplay();
+    
+    // Auto-refresh draft data and recommendations every 10 seconds
+    if (!draftData.isCompleted) {
+        setInterval(() => {
+            loadDraftData();
+            loadRecommendations();
+        }, 10000);
+    }
+});
+
+// Load heroes from API
+function loadHeroes() {
+    fetch('/api/heroes/')
+        .then(response => response.json())
+        .then(data => {
+            allHeroes = data.heroes;
+            renderHeroGrid(allHeroes);
+            initializeHeroFiltering();
+        })
+        .catch(error => console.error('Error loading heroes:', error));
+}
+
+function renderHeroGrid(heroes) {
+    const heroGrid = document.getElementById('hero-grid');
+    heroGrid.innerHTML = '';
+    
+    heroes.forEach(hero => {
+        const heroBtn = document.createElement('button');
+        heroBtn.className = 'hero-btn bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded-lg p-2 text-xs text-white transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500';
+        heroBtn.dataset.heroId = hero.id;
+        heroBtn.dataset.heroName = hero.name;
+        heroBtn.dataset.heroRole = hero.role;
+        
+        // Create hero display with stats
+        heroBtn.innerHTML = `
+            <div class="text-center">
+                <div class="font-medium truncate">${hero.name}</div>
+                <div class="text-xs text-gray-400 mt-1">${hero.role}</div>
+                <div class="flex justify-between text-xs text-gray-500 mt-1">
+                    <span title="Win Rate">${hero.win_rate.toFixed(1)}%</span>
+                    <span title="Pick Rate">${hero.pick_rate.toFixed(1)}%</span>
+                </div>
+            </div>
+        `;
+        
+        heroBtn.addEventListener('click', function() {
+            if (draftData.isCompleted) return;
+            if (this.classList.contains('disabled')) return;
+            
+            selectedHero = {
+                id: parseInt(hero.id),
+                name: hero.name,
+                role: hero.role
+            };
+            
+            if (draftData.currentAction.includes('pick')) {
+                showPositionSelector();
+            } else {
+                executeAction('ban', selectedHero.id, selectedHero.name);
+            }
+        });
+        
+        heroGrid.appendChild(heroBtn);
+    });
+}
+
+function initializeHeroFiltering() {
+    const searchInput = document.getElementById('hero-search');
+    const roleFilter = document.getElementById('role-filter');
+    
+    function filterHeroes() {
+        const searchTerm = searchInput.value.toLowerCase();
+        const selectedRole = roleFilter.value;
+        
+        const filteredHeroes = allHeroes.filter(hero => {
+            const matchesSearch = hero.name.toLowerCase().includes(searchTerm);
+            const matchesRole = selectedRole === 'all' || hero.role === selectedRole;
+            return matchesSearch && matchesRole;
+        });
+        
+        renderHeroGrid(filteredHeroes);
+    }
+    
+    searchInput.addEventListener('input', filterHeroes);
+    roleFilter.addEventListener('change', filterHeroes);
+}
+
+function initializeTabSwitching() {
+    const heroesTab = document.getElementById('heroes-tab');
+    const recommendationsTab = document.getElementById('recommendations-tab');
+    const heroesContent = document.getElementById('heroes-content');
+    const recommendationsContent = document.getElementById('recommendations-content');
+    
+    heroesTab.addEventListener('click', function() {
+        this.className = 'flex-1 px-4 py-3 text-white bg-gray-700 font-medium';
+        recommendationsTab.className = 'flex-1 px-4 py-3 text-gray-300 bg-gray-800 hover:bg-gray-700 font-medium';
+        heroesContent.classList.remove('hidden');
+        recommendationsContent.classList.add('hidden');
+    });
+    
+    recommendationsTab.addEventListener('click', function() {
+        this.className = 'flex-1 px-4 py-3 text-white bg-gray-700 font-medium';
+        heroesTab.className = 'flex-1 px-4 py-3 text-gray-300 bg-gray-800 hover:bg-gray-700 font-medium';
+        heroesContent.classList.add('hidden');
+        recommendationsContent.classList.remove('hidden');
+        loadRecommendations();
+    });
+}
+
+function loadRecommendations() {
+    if (draftData.isCompleted) return;
+    
+    fetch(`/draft/${draftData.id}/recommendations/`)
+        .then(response => response.json())
+        .then(data => {
+            currentRecommendations = data.recommendations;
+            renderRecommendations(data.recommendations, data.phase);
+        })
+        .catch(error => console.error('Error loading recommendations:', error));
+}
+
+function renderRecommendations(recommendations, phase) {
+    const recommendationsList = document.getElementById('recommendations-list');
+    recommendationsList.innerHTML = '';
+    
+    if (recommendations.length === 0) {
+        recommendationsList.innerHTML = '<div class="text-gray-400 text-center py-4">No recommendations available</div>';
+        return;
+    }
+    
+    recommendations.forEach((rec, index) => {
+        const recDiv = document.createElement('div');
+        recDiv.className = 'bg-gray-700 rounded-lg p-3 border border-gray-600 hover:border-blue-500 cursor-pointer transition-colors';
+        
+        const scoreColor = rec.draft_score >= 75 ? 'text-green-400' : rec.draft_score >= 60 ? 'text-yellow-400' : 'text-red-400';
+        const phaseText = phase === 'pick' ? 'Pick' : 'Ban';
+        
+        recDiv.innerHTML = `
+            <div class="flex justify-between items-start mb-2">
+                <div>
+                    <div class="font-medium text-white">${rec.name}</div>
+                    <div class="text-xs text-gray-400">${rec.role}</div>
+                </div>
+                <div class="text-right">
+                    <div class="${scoreColor} font-bold text-sm">${rec[phase === 'pick' ? 'draft_score' : 'ban_score'].toFixed(0)}</div>
+                    <div class="text-xs text-gray-400">Score</div>
+                </div>
+            </div>
+            <div class="text-xs text-gray-300 mb-2">${rec[phase === 'pick' ? 'recommendation_reason' : 'ban_reason']}</div>
+            <div class="flex justify-between text-xs text-gray-500">
+                <span>WR: ${rec.win_rate.toFixed(1)}%</span>
+                <span>PR: ${rec.pick_rate.toFixed(1)}%</span>
+                <span class="${scoreColor}">Rank #${index + 1}</span>
+            </div>
+        `;
+        
+        recDiv.addEventListener('click', function() {
+            selectedHero = {
+                id: parseInt(rec.id),
+                name: rec.name,
+                role: rec.role
+            };
+            
+            if (phase === 'pick') {
+                showPositionSelector();
+            } else {
+                executeAction('ban', selectedHero.id, selectedHero.name);
+            }
+        });
+        
+        recommendationsList.appendChild(recDiv);
+    });
+}
+
+function initializePositionSelection() {
+    const positionButtons = document.querySelectorAll('.position-btn');
+    
+    positionButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const position = this.dataset.position;
+            selectedPosition = position;
+            
+            if (selectedHero) {
+                executeAction('pick', selectedHero.id, selectedHero.name, position);
+                hidePositionSelector();
+            }
+        });
+    });
+}
+
+function showPositionSelector() {
+    document.getElementById('position-selector').classList.remove('hidden');
+}
+
+function hidePositionSelector() {
+    document.getElementById('position-selector').classList.add('hidden');
+    selectedHero = null;
+    selectedPosition = null;
+}
+
+function executeAction(action, heroId, heroName, position = null) {
+    const data = {
+        action: action,
+        hero_id: heroId,
+        hero_name: heroName
+    };
+    
+    if (position) {
+        data.position = position;
+    }
+    
+    fetch(`/draft/${draftData.id}/action/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update draft state
+            draftData.currentAction = data.next_turn;
+            draftData.isCompleted = data.is_completed;
+            
+            // Add to history
+            const actionText = action === 'pick' ? 'picked' : 'banned';
+            const teamSide = draftData.currentAction.includes('blue') ? 'Blue' : 'Red';
+            draftHistory.push(`${teamSide} team ${actionText} ${heroName}`);
+            
+            // Reload draft data
+            loadDraftData();
+            updateCurrentTurnDisplay();
+            updateDraftHistory();
+            
+            // Disable the selected hero button
+            const heroBtn = document.querySelector(`[data-hero-id="${heroId}"]`);
+            if (heroBtn) {
+                heroBtn.classList.add('disabled', 'bg-gray-900', 'cursor-not-allowed');
+                heroBtn.disabled = true;
+            }
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while processing the action.');
+    });
+}
+
+function loadDraftData() {
+    fetch(`/draft/${draftData.id}/data/`)
+        .then(response => response.json())
+        .then(data => {
+            updateDraftBoard(data);
+        })
+        .catch(error => console.error('Error loading draft data:', error));
+}
+
+function updateDraftBoard(data) {
+    // Update blue team picks
+    const bluePicks = document.getElementById('blue-picks');
+    bluePicks.innerHTML = '';
+    
+    if (data.blue_team.picks.length === 0) {
+        bluePicks.innerHTML = '<div class="text-blue-400 text-sm italic">No picks yet</div>';
+    } else {
+        data.blue_team.picks.forEach(pick => {
+            const positionText = pick.position ? getPositionName(pick.position) : '';
+            bluePicks.innerHTML += `
+                <div class="bg-blue-800 rounded-lg p-3 border border-blue-600">
+                    <div class="flex justify-between items-center">
+                        <span class="font-medium text-blue-100">${pick.hero_name}</span>
+                        ${positionText ? `<span class="bg-blue-700 px-2 py-1 rounded text-blue-200 text-xs">${positionText}</span>` : ''}
+                    </div>
+                </div>
+            `;
+        });
+    }
+    
+    // Update blue team bans
+    const blueBans = document.getElementById('blue-bans');
+    blueBans.innerHTML = '';
+    
+    if (data.blue_team.bans.length === 0) {
+        blueBans.innerHTML = '<div class="text-blue-400 text-sm italic col-span-2">No bans yet</div>';
+    } else {
+        data.blue_team.bans.forEach(ban => {
+            blueBans.innerHTML += `
+                <div class="bg-red-900 rounded-lg p-2 border border-red-600">
+                    <span class="text-red-300 text-sm">${ban.hero_name}</span>
+                </div>
+            `;
+        });
+    }
+    
+    // Update red team picks
+    const redPicks = document.getElementById('red-picks');
+    redPicks.innerHTML = '';
+    
+    if (data.red_team.picks.length === 0) {
+        redPicks.innerHTML = '<div class="text-red-400 text-sm italic">No picks yet</div>';
+    } else {
+        data.red_team.picks.forEach(pick => {
+            const positionText = pick.position ? getPositionName(pick.position) : '';
+            redPicks.innerHTML += `
+                <div class="bg-red-800 rounded-lg p-3 border border-red-600">
+                    <div class="flex justify-between items-center">
+                        <span class="font-medium text-red-100">${pick.hero_name}</span>
+                        ${positionText ? `<span class="bg-red-700 px-2 py-1 rounded text-red-200 text-xs">${positionText}</span>` : ''}
+                    </div>
+                </div>
+            `;
+        });
+    }
+    
+    // Update red team bans
+    const redBans = document.getElementById('red-bans');
+    redBans.innerHTML = '';
+    
+    if (data.red_team.bans.length === 0) {
+        redBans.innerHTML = '<div class="text-red-400 text-sm italic col-span-2">No bans yet</div>';
+    } else {
+        data.red_team.bans.forEach(ban => {
+            redBans.innerHTML += `
+                <div class="bg-red-900 rounded-lg p-2 border border-red-600">
+                    <span class="text-red-300 text-sm">${ban.hero_name}</span>
+                </div>
+            `;
+        });
+    }
+    
+    // Mark used heroes as disabled
+    const allPicks = [...data.blue_team.picks, ...data.red_team.picks];
+    const allBans = [...data.blue_team.bans, ...data.red_team.bans];
+    const usedHeroIds = [...allPicks.map(p => p.hero_id), ...allBans.map(b => b.hero_id)];
+    
+    document.querySelectorAll('.hero-btn').forEach(btn => {
+        const heroId = parseInt(btn.dataset.heroId);
+        if (usedHeroIds.includes(heroId)) {
+            btn.classList.add('disabled', 'bg-gray-900', 'cursor-not-allowed');
+            btn.disabled = true;
+        }
+    });
+}
+
+function getPositionName(position) {
+    const positions = {
+        1: 'Exp Lane',
+        2: 'Jungler',
+        3: 'Mid Lane', 
+        4: 'Gold Lane',
+        5: 'Roamer'
+    };
+    return positions[position] || '';
+}
+
+function updateCurrentTurnDisplay() {
+    const currentActionElement = document.getElementById('current-action');
+    if (currentActionElement && !draftData.isCompleted) {
+        currentActionElement.textContent = draftData.currentAction.replace('_', ' ').toUpperCase();
+    }
+}
+
+function updateDraftHistory() {
+    const historyElement = document.getElementById('draft-history');
+    historyElement.innerHTML = draftHistory.map(entry => `<div>${entry}</div>`).join('');
+}
+
+function initializeTemplateModal() {
+    const saveBtn = document.getElementById('save-template-btn');
+    const modal = document.getElementById('save-template-modal');
+    const cancelBtn = document.getElementById('cancel-template');
+    const form = document.getElementById('save-template-form');
+    
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        });
+    }
+    
+    cancelBtn.addEventListener('click', () => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    });
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData();
+        formData.append('name', document.getElementById('template-name').value);
+        formData.append('description', document.getElementById('template-description').value);
+        formData.append('is_public', document.getElementById('template-public').checked ? 'on' : '');
+        
+        fetch(`/draft/${draftData.id}/save-template/`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Template saved successfully!');
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            } else {
+                alert('Error: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while saving the template.');
+        });
+    });
+}
+</script>
+{% endblock %}
